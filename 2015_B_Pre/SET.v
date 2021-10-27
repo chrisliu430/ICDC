@@ -50,11 +50,17 @@ module SET ( clk , rst, en, central, radius, mode, busy, valid, candidate );
                 x = 4'd1;
                 y = 4'd1;
             end else begin
+                temp_xA = xA - x;
+                temp_yA = yA - y;
+                temp_xB = xB - x;
+                temp_yB = yB - y;
+                temp_xC = xC - x;
+                temp_yC = yC - y;
+                controlA = temp_xA * temp_xA + temp_yA * temp_yA <= rA * rA ? 1 : 0;
+                controlB = temp_xB * temp_xB + temp_yB * temp_yB <= rB * rB ? 1 : 0;
+                controlC = temp_xC * temp_xC + temp_yC * temp_yC <= rC * rC ? 1 : 0;
                 case(modeCom)
                 2'd0: begin
-                    temp_xA = xA - x;
-                    temp_yA = yA - y;
-                    controlA = temp_xA * temp_xA + temp_yA * temp_yA <= rA * rA ? 1 : 0;
                     _candidate = controlA ? _candidate + 1 : _candidate;
                     if (x == 4'd8) begin
                         y = y + 1;
@@ -68,12 +74,6 @@ module SET ( clk , rst, en, central, radius, mode, busy, valid, candidate );
                     end
                 end
                 2'd1: begin
-                    temp_xA = xA - x;
-                    temp_yA = yA - y;
-                    temp_xB = xB - x;
-                    temp_yB = yB - y;
-                    controlA = temp_xA * temp_xA + temp_yA * temp_yA <= rA * rA ? 1 : 0;
-                    controlB = temp_xB * temp_xB + temp_yB * temp_yB <= rB * rB ? 1 : 0;
                     _candidate = controlA && controlB ? _candidate + 1 : _candidate;
                     if (x == 4'd8) begin
                         y = y + 1;
@@ -87,12 +87,6 @@ module SET ( clk , rst, en, central, radius, mode, busy, valid, candidate );
                     end
                 end
                 2'd2: begin
-                    temp_xA = xA - x;
-                    temp_yA = yA - y;
-                    temp_xB = xB - x;
-                    temp_yB = yB - y;
-                    controlA = temp_xA * temp_xA + temp_yA * temp_yA <= rA * rA ? 1 : 0;
-                    controlB = temp_xB * temp_xB + temp_yB * temp_yB <= rB * rB ? 1 : 0;
                     _candidate = ((controlA || controlB) && !(controlA && controlB)) ? _candidate + 1 : _candidate;
                     if (x == 4'd8) begin
                         y = y + 1;
@@ -106,15 +100,6 @@ module SET ( clk , rst, en, central, radius, mode, busy, valid, candidate );
                     end
                 end
                 default: begin
-                    temp_xA = xA - x;
-                    temp_yA = yA - y;
-                    temp_xB = xB - x;
-                    temp_yB = yB - y;
-                    temp_xC = xC - x;
-                    temp_yC = yC - y;
-                    controlA = temp_xA * temp_xA + temp_yA * temp_yA <= rA * rA ? 1 : 0;
-                    controlB = temp_xB * temp_xB + temp_yB * temp_yB <= rB * rB ? 1 : 0;
-                    controlC = temp_xC * temp_xC + temp_yC * temp_yC <= rC * rC ? 1 : 0;
                     if (controlA) begin
                         _candidate = (controlB || controlC) && !(controlB && controlC) ? _candidate + 1 : _candidate;
                     end else if (controlB) begin
