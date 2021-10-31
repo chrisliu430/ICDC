@@ -14,15 +14,20 @@ module geofence (clk, reset, X, Y, valid, is_inside);
 
     reg [2:0] countTemp;
     reg [2:0] nextStatus;
+    reg [1:0] countNum;
 
     reg signed [19:0] xA, yA, xB, yB;
-    reg signed [31:0] outPot;
+
+    wire [31:0] outPot;
 
     reg [9:0] targetX, targetY;
     reg [9:0] tempX [5:0];
     reg [9:0] tempY [5:0];
+    reg [9:0] swap;
 
     assign status = nextStatus;
+
+    assign outPot = (tempX[countNum + 1] - tempX[0]) * (tempY[countNum + 2] - tempY[0]) - (tempX[countNum + 2] - tempX[0]) * (tempY[countNum + 1] - tempY[0]);
 
     assign result0 = (tempX[0] - targetX) * (tempY[1] - tempY[0]) - (tempX[1] - tempX[0]) * (tempY[0] - targetY);
     assign result1 = (tempX[1] - targetX) * (tempY[2] - tempY[1]) - (tempX[2] - tempX[1]) * (tempY[1] - targetY);
@@ -49,6 +54,7 @@ module geofence (clk, reset, X, Y, valid, is_inside);
             end else if (status == 1) begin
                 if (countTemp == 6) begin
                     nextStatus <= 2;
+                    countNum <= 0;
                 end else begin
                     tempX[0] <= tempX[1];
                     tempX[1] <= tempX[2];
@@ -65,13 +71,9 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                     countTemp <= countTemp + 1;
                 end
             end else if (status == 2) begin
-                xA = tempX[1] - tempX[0];
-                yA = tempY[1] - tempY[0];
-                xB = tempX[2] - tempX[0];
-                yB = tempY[2] - tempY[0];
-                outPot = xA * yB - xB * yA;
-                if (outPot < 0) begin
+                if (outPot[31] == 1) begin
                     nextStatus <= 3;
+                    countNum <= countNum + 1;
                 end else begin
                     tempX[1] <= tempX[2];
                     tempX[2] <= tempX[1];
@@ -79,48 +81,38 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                     tempY[2] <= tempY[1];
                 end
             end else if (status == 3) begin
-                xA = tempX[2] - tempX[0];
-                yA = tempY[2] - tempY[0];
-                xB = tempX[3] - tempX[0];
-                yB = tempY[3] - tempY[0];
-                outPot = xA * yB - xB * yA;
-                if (outPot < 0) begin
+                if (outPot[31] == 1) begin
                     nextStatus <= 4;
+                    countNum <= countNum + 1;
                 end else begin
                     tempX[2] <= tempX[3];
                     tempX[3] <= tempX[2];
                     tempY[2] <= tempY[3];
                     tempY[3] <= tempY[2];
+                    countNum <= 0;
                     nextStatus <= 2;
                 end
             end else if (status == 4) begin
-                xA = tempX[3] - tempX[0];
-                yA = tempY[3] - tempY[0];
-                xB = tempX[4] - tempX[0];
-                yB = tempY[4] - tempY[0];
-                outPot = xA * yB - xB * yA;
-                if (outPot < 0) begin
+                if (outPot[31] == 1) begin
                     nextStatus <= 5;
+                    countNum <= countNum + 1;
                 end else begin
                     tempX[3] <= tempX[4];
                     tempX[4] <= tempX[3];
                     tempY[3] <= tempY[4];
                     tempY[4] <= tempY[3];
+                    countNum <= 0;
                     nextStatus <= 2;
                 end
             end else if (status == 5) begin
-                xA = tempX[4] - tempX[0];
-                yA = tempY[4] - tempY[0];
-                xB = tempX[5] - tempX[0];
-                yB = tempY[5] - tempY[0];
-                outPot = xA * yB - xB * yA;
-                if (outPot < 0) begin
+                if (outPot[31] == 1) begin
                     nextStatus <= 6;
                 end else begin
                     tempX[4] <= tempX[5];
                     tempX[5] <= tempX[4];
                     tempY[4] <= tempY[5];
                     tempY[5] <= tempY[4];
+                    countNum <= 0;
                     nextStatus <= 2;
                 end
             end else if (status == 6) begin

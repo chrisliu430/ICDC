@@ -20,7 +20,7 @@ module SET ( clk , rst, en, central, radius, mode, busy, valid, candidate );
 
     reg controlA, controlB, controlC;
 
-    reg [9:0] temp_xA, temp_yA, temp_xB, temp_yB, temp_xC, temp_yC;
+    reg signed [8:0] temp_xA, temp_yA, temp_xB, temp_yB, temp_xC, temp_yC;
 
     assign busy = _busy;
     assign valid = _valid;
@@ -60,65 +60,33 @@ module SET ( clk , rst, en, central, radius, mode, busy, valid, candidate );
                 controlB = temp_xB * temp_xB + temp_yB * temp_yB <= rB * rB ? 1 : 0;
                 controlC = temp_xC * temp_xC + temp_yC * temp_yC <= rC * rC ? 1 : 0;
                 case(modeCom)
-                2'd0: begin
-                    _candidate = controlA ? _candidate + 1 : _candidate;
-                    if (x == 4'd8) begin
-                        y = y + 1;
-                        x = 4'd1;
-                    end else begin
-                        x = x + 1;
+                    2'd0: begin
+                        _candidate = (controlA) ? _candidate + 1 : _candidate;
                     end
-                    if (y == 4'd9) begin
-                        _busy = 1'b0;
-                        _valid = 1'b1;
+                    2'd1: begin
+                        _candidate = (controlA && controlB) ? _candidate + 1 : _candidate;
                     end
-                end
-                2'd1: begin
-                    _candidate = controlA && controlB ? _candidate + 1 : _candidate;
-                    if (x == 4'd8) begin
-                        y = y + 1;
-                        x = 4'd1;
-                    end else begin
-                        x = x + 1;
+                    2'd2: begin
+                        _candidate = ((controlA || controlB) && !(controlA && controlB)) ? _candidate + 1 : _candidate;
                     end
-                    if (y == 4'd9) begin
-                        _busy = 1'b0;
-                        _valid = 1'b1;
+                    default: begin
+                        if (controlA) begin
+                            _candidate = (controlB || controlC) && !(controlB && controlC) ? _candidate + 1 : _candidate;
+                        end else if (controlB) begin
+                            _candidate = (controlA || controlC) && !(controlA && controlC) ? _candidate + 1 : _candidate;
+                        end else begin
+                            _candidate = (controlA || controlB) && !(controlA && controlB) ? _candidate + 1 : _candidate;
+                        end
                     end
-                end
-                2'd2: begin
-                    _candidate = ((controlA || controlB) && !(controlA && controlB)) ? _candidate + 1 : _candidate;
-                    if (x == 4'd8) begin
-                        y = y + 1;
-                        x = 4'd1;
-                    end else begin
-                        x = x + 1;
-                    end
-                    if (y == 4'd9) begin
-                        _busy = 1'b0;
-                        _valid = 1'b1;
-                    end
-                end
-                default: begin
-                    if (controlA) begin
-                        _candidate = (controlB || controlC) && !(controlB && controlC) ? _candidate + 1 : _candidate;
-                    end else if (controlB) begin
-                        _candidate = (controlA || controlC) && !(controlA && controlC) ? _candidate + 1 : _candidate;
-                    end else begin
-                        _candidate = (controlA || controlB) && !(controlA && controlB) ? _candidate + 1 : _candidate;
-                    end
-                    if (x == 4'd8) begin
-                        y = y + 1;
-                        x = 4'd1;
-                    end else begin
-                        x = x + 1;
-                    end
-                    if (y == 4'd9) begin
-                        _busy = 1'b0;
-                        _valid = 1'b1;
-                    end
-                end
                 endcase
+                if (x == 4'd8) begin
+                    y = y + 1;
+                    x = 4'd1;
+                end else begin
+                    x = x + 1;
+                end
+                _busy = (y == 4'd9) ? 1'b0 : 1'b1;
+                _valid = (y == 4'd9) ? 1'b1 : 1'b0;
             end
         end
     end
