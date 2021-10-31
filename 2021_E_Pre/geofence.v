@@ -7,8 +7,9 @@ module geofence (clk, reset, X, Y, valid, is_inside);
     output is_inside;
 
     wire [2:0] status;
-    wire [31:0] result0, result1, result2, result3, result4, result5;
-    wire [5:0] result;
+    wire [20:0] target, compare;
+    reg [2:0] countIndex;
+    reg [2:0] countResult;
 
     reg _valid, _inside;
 
@@ -18,7 +19,7 @@ module geofence (clk, reset, X, Y, valid, is_inside);
 
     reg signed [19:0] xA, yA, xB, yB;
 
-    wire [31:0] outPot;
+    wire [20:0] outPot;
 
     reg [9:0] targetX, targetY;
     reg [9:0] tempX [5:0];
@@ -29,14 +30,8 @@ module geofence (clk, reset, X, Y, valid, is_inside);
 
     assign outPot = (tempX[countNum + 1] - tempX[0]) * (tempY[countNum + 2] - tempY[0]) - (tempX[countNum + 2] - tempX[0]) * (tempY[countNum + 1] - tempY[0]);
 
-    assign result0 = (tempX[0] - targetX) * (tempY[1] - tempY[0]) - (tempX[1] - tempX[0]) * (tempY[0] - targetY);
-    assign result1 = (tempX[1] - targetX) * (tempY[2] - tempY[1]) - (tempX[2] - tempX[1]) * (tempY[1] - targetY);
-    assign result2 = (tempX[2] - targetX) * (tempY[3] - tempY[2]) - (tempX[3] - tempX[2]) * (tempY[2] - targetY);
-    assign result3 = (tempX[3] - targetX) * (tempY[4] - tempY[3]) - (tempX[4] - tempX[3]) * (tempY[3] - targetY);
-    assign result4 = (tempX[4] - targetX) * (tempY[5] - tempY[4]) - (tempX[5] - tempX[4]) * (tempY[4] - targetY);
-    assign result5 = (tempX[5] - targetX) * (tempY[0] - tempY[5]) - (tempX[0] - tempX[5]) * (tempY[5] - targetY);
-
-    assign result = {result0[31], result1[31], result2[31], result3[31], result4[31], result5[31]};
+    assign compare = (tempX[countIndex] - targetX) * (tempY[countIndex + 1] - tempY[countIndex]) - (tempX[countIndex + 1] - tempX[countIndex]) * (tempY[countIndex] - targetY);
+    assign target = (tempX[5] - targetX) * (tempY[0] - tempY[5]) - (tempX[0] - tempX[5]) * (tempY[5] - targetY);
 
     assign valid = _valid;
     assign is_inside = _inside;
@@ -51,6 +46,8 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                 targetX <= X;
                 targetY <= Y;
                 nextStatus <= 1;
+                countResult <= 0;
+                countIndex <= 0;
             end else if (status == 1) begin
                 if (countTemp == 6) begin
                     nextStatus <= 2;
@@ -71,7 +68,7 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                     countTemp <= countTemp + 1;
                 end
             end else if (status == 2) begin
-                if (outPot[31] == 1) begin
+                if (outPot[20] == 1) begin
                     nextStatus <= 3;
                     countNum <= countNum + 1;
                 end else begin
@@ -81,7 +78,7 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                     tempY[2] <= tempY[1];
                 end
             end else if (status == 3) begin
-                if (outPot[31] == 1) begin
+                if (outPot[20] == 1) begin
                     nextStatus <= 4;
                     countNum <= countNum + 1;
                 end else begin
@@ -93,7 +90,7 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                     nextStatus <= 2;
                 end
             end else if (status == 4) begin
-                if (outPot[31] == 1) begin
+                if (outPot[20] == 1) begin
                     nextStatus <= 5;
                     countNum <= countNum + 1;
                 end else begin
@@ -105,7 +102,7 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                     nextStatus <= 2;
                 end
             end else if (status == 5) begin
-                if (outPot[31] == 1) begin
+                if (outPot[20] == 1) begin
                     nextStatus <= 6;
                 end else begin
                     tempX[4] <= tempX[5];
@@ -116,9 +113,14 @@ module geofence (clk, reset, X, Y, valid, is_inside);
                     nextStatus <= 2;
                 end
             end else if (status == 6) begin
-                _valid <= 1;
-                _inside <= (result == 6'b111111 || result == 6'b000000) ? 1 : 0;
-                nextStatus <= 7;
+                if (countIndex == 5) begin
+                    _valid <= 1;
+                    _inside <= (countResult == 5) ? 1 : 0;
+                    nextStatus <= 7;
+                end else begin
+                    countIndex <= countIndex + 1;
+                    countResult <= (target[20] == compare[20]) ? countResult + 1 : countResult;
+                end
             end else begin
                 _valid <= 0;
                 nextStatus <= 0;
