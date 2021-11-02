@@ -6,132 +6,143 @@ module geofence (clk, reset, X, Y, valid, is_inside);
     output valid;
     output is_inside;
 
+    reg [9:0] targetX, targetY;
+
     integer i;
+    reg [2:0] countGeofence;
+    reg [9:0] geofenceX [5:0];
+    reg [9:0] geofenceY [5:0];
 
-    wire target;
-    wire [2:0] status;
-    wire [20:0] compare;
-    reg [2:0] countIndex;
-    reg [2:0] countResult;
+    reg [1:0] readStatus;
+    reg [2:0] calStatus;
+    reg [2:0] countElement, countResult;
 
-    reg _valid, _inside;
-
-    reg [2:0] countTemp;
-    reg [2:0] nextStatus;
+    reg signed [11:0] xA, yA, xB, yB;
+    wire [9:0] sxA, syA, sxB, syB, subxA, subyA, subxB, subyB;
 
     wire [20:0] outPot;
-    reg [20:0] cal;
 
-    reg [9:0] targetX, targetY;
-    reg [9:0] tempX [5:0];
-    reg [9:0] tempY [5:0];
+    wire judge;
+    wire [1:0] calResult;
 
-    assign status = nextStatus;
-
-    assign outPot = (tempX[countIndex + 1] - tempX[0]) * (tempY[countIndex + 2] - tempY[0]) - (tempX[countIndex + 2] - tempX[0]) * (tempY[countIndex + 1] - tempY[0]);
-
-    assign compare = (tempX[countIndex] - targetX) * (tempY[countIndex + 1] - tempY[countIndex]) - (tempX[countIndex + 1] - tempX[countIndex]) * (tempY[countIndex] - targetY);
-    assign target = cal[20];
+    reg _valid, _inside, bitJudge;
 
     assign valid = _valid;
     assign is_inside = _inside;
 
+    assign judge = outPot[20];
+
+    assign sxA = (calStatus < 5) ? geofenceX[countElement + 1] : ((calStatus == 5) ? geofenceX[5] : geofenceX[countElement]);
+    assign syA = (calStatus < 5) ? geofenceY[countElement + 1] : ((calStatus == 5) ? geofenceY[5] : geofenceY[countElement]);
+    assign sxB = (calStatus < 5) ? geofenceX[countElement + 2] : ((calStatus == 5) ? geofenceX[0] : geofenceX[countElement + 1]);
+    assign syB = (calStatus < 5) ? geofenceY[countElement + 2] : ((calStatus == 5) ? geofenceY[0] : geofenceY[countElement + 1]);
+    assign subxA = (calStatus < 5) ? geofenceX[0] : targetX;
+    assign subyA = (calStatus < 5) ? geofenceY[0] : targetY;
+    assign subxB = (calStatus < 5) ? geofenceX[0] : ((calStatus == 5) ? geofenceX[5] : geofenceX[countElement]);
+    assign subyB = (calStatus < 5) ? geofenceY[0] : ((calStatus == 5) ? geofenceY[5] : geofenceY[countElement]);
+
+    assign outPot = (sxA - subxA) * (syB - subyB) - (sxB - subxB) * (syA - subyA);
+
     always @(posedge clk or posedge reset) begin
         if (reset) begin
-            countTemp <= 0;
-            nextStatus <= 0;
+            _valid <= 0;
+            _inside <= 0;
+            readStatus <= 0;
+            calStatus <= 0;
+            countGeofence <= 0;
         end else begin
-            case (status)
-                3'd0: begin
+            case(readStatus)
+                2'd0: begin
                     _valid <= 0;
+                    readStatus <= 1;
                     targetX <= X;
                     targetY <= Y;
-                    nextStatus <= 1;
-                    countResult <= 0;
+                    calStatus <= 0;
+                    countGeofence <= 0;
+                end
+                2'd1: begin
+                    for (i = 0; i < 5; i = i + 1) begin
+                        geofenceX[i] <= geofenceX[i + 1];
+                        geofenceY[i] <= geofenceY[i + 1];
+                    end
+                    geofenceX[5] <= X;
+                    geofenceY[5] <= Y;
+                    countGeofence <= countGeofence + 1;
+                    if (countGeofence == 5) readStatus <= 2;
+                end
+                2'd2: begin
+                end
+                default: begin
+                    _valid <= 1'b0;
+                    readStatus <= 2'd0;
+                end
+            endcase
+            case(calStatus)
+                3'd0: begin
+                    if (readStatus == 2) begin
+                        calStatus <= 1;
+                        countElement <= 0;
+                    end
                 end
                 3'd1: begin
-                    if (countTemp == 6) begin
-                        nextStatus <= 2;
-                        countIndex <= 0;
+                    if (judge) begin // 1, 2
+                        calStatus <= calStatus + 1;
+                        countElement <= countElement + 1;
                     end else begin
-                        for (i = 0; i < 5; i = i + 1) begin
-                            tempX[i] <= tempX[i + 1];
-                            tempY[i] <= tempY[i + 1];
-                        end
-                        tempX[5] <= X;
-                        tempY[5] <= Y;
-                        countTemp <= countTemp + 1;
+                        calStatus <= 3'd7;
                     end
                 end
                 3'd2: begin
-                    if (outPot[20] == 1) begin
-                        nextStatus <= 3;
-                        countIndex <= countIndex + 1;
+                    if (judge) begin // 2, 3
+                        calStatus <= calStatus + 1;
+                        countElement <= countElement + 1;
                     end else begin
-                        tempX[1] <= tempX[2];
-                        tempX[2] <= tempX[1];
-                        tempY[1] <= tempY[2];
-                        tempY[2] <= tempY[1];
+                        calStatus <= 3'd7;
                     end
                 end
                 3'd3: begin
-                    if (outPot[20] == 1'b1) begin
-                        nextStatus <= 4;
-                        countIndex <= countIndex + 1;
+                    if (judge) begin // 3, 4
+                        calStatus <= calStatus + 1;
+                        countElement <= countElement + 1;
                     end else begin
-                        tempX[2] <= tempX[3];
-                        tempX[3] <= tempX[2];
-                        tempY[2] <= tempY[3];
-                        tempY[3] <= tempY[2];
-                        countIndex <= 0;
-                        nextStatus <= 2;
+                        calStatus <= 3'd7;
                     end
                 end
                 3'd4: begin
-                    if (outPot[20] == 1'b1) begin
-                        nextStatus <= 5;
-                        countIndex <= countIndex + 1;
+                    if (judge) begin // 4, 5
+                        calStatus <= calStatus + 1;
                     end else begin
-                        tempX[3] <= tempX[4];
-                        tempX[4] <= tempX[3];
-                        tempY[3] <= tempY[4];
-                        tempY[4] <= tempY[3];
-                        countIndex <= 0;
-                        nextStatus <= 2;
+                        calStatus <= 3'd7;
                     end
                 end
                 3'd5: begin
-                    if (outPot[20] == 1'b1) begin
-                        nextStatus <= 6;
-                        cal <= (tempX[5] - targetX) * (tempY[0] - tempY[5]) - (tempX[0] - tempX[5]) * (tempY[5] - targetY);
-                        countIndex <= 0;
-                    end else begin
-                        tempX[4] <= tempX[5];
-                        tempX[5] <= tempX[4];
-                        tempY[4] <= tempY[5];
-                        tempY[5] <= tempY[4];
-                        countIndex <= 0;
-                        nextStatus <= 2;
-                    end
+                    countElement <= 0;
+                    calStatus <= 6;
+                    countResult <= 0;
+                    bitJudge <= outPot[20];
                 end
                 3'd6: begin
-                    if (countIndex == 3'b101) begin
+                    if (countElement == 5) begin
                         _valid <= 1;
-                        _inside <= (countResult == 3'b101) ? 1 : 0;
-                        nextStatus <= 7;
+                        _inside <= (countResult == 5) ? 1 : 0;
+                        calStatus <= 0;
+                        readStatus <= 3;
                     end else begin
-                        countIndex <= countIndex + 1;
-                        countResult <= (target == compare[20]) ? countResult + 1 : countResult;
+                        countElement <= countElement + 1;
+                        countResult <= (judge == bitJudge) ? countResult + 1 : countResult;
                     end
                 end
                 default: begin
-                    _valid <= 0;
-                    nextStatus <= 0;
-                    countTemp <= 0;
+                    geofenceX[countElement + 1] <= geofenceX[countElement + 2];
+                    geofenceX[countElement + 2] <= geofenceX[countElement + 1];
+                    geofenceY[countElement + 1] <= geofenceY[countElement + 2];
+                    geofenceY[countElement + 2] <= geofenceY[countElement + 1];
+                    calStatus <= 1;
+                    countElement <= 3'd0;
                 end
             endcase
         end
     end
-
+    
 endmodule
 
